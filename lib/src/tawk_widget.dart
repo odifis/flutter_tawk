@@ -37,8 +37,44 @@ class Tawk extends StatefulWidget {
 }
 
 class _TawkState extends State<Tawk> {
-  late WebViewController _controller;
   bool _isLoading = true;
+  late WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = WebViewController()
+      ..loadRequest(Uri.parse(widget.directChatLink))
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onNavigationRequest:   (NavigationRequest request) {
+          if (request.url == 'about:blank' ||
+              request.url.contains('tawk.to')) {
+            return NavigationDecision.navigate;
+          }
+
+          if (widget.onLinkTap != null) {
+            widget.onLinkTap!(request.url);
+          }
+
+          return NavigationDecision.prevent;
+        },
+        onPageFinished: (_) {
+          if (widget.visitor != null) {
+            _setUser(widget.visitor!);
+          }
+
+          if (widget.onLoad != null) {
+            widget.onLoad!();
+          }
+
+          setState(() {
+            _isLoading = false;
+          });
+        },
+      ));
+  }
 
   void _setUser(TawkVisitor visitor) {
     final json = jsonEncode(visitor);
@@ -58,47 +94,17 @@ class _TawkState extends State<Tawk> {
       ''';
     }
 
-    _controller.runJavascript(javascriptString);
+    _controller.runJavaScript(javascriptString);
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Stack(
       children: [
-        WebView(
-          initialUrl: widget.directChatLink,
-          javascriptMode: JavascriptMode.unrestricted,
-          onWebViewCreated: (WebViewController webViewController) {
-            setState(() {
-              _controller = webViewController;
-            });
-          },
-          navigationDelegate: (NavigationRequest request) {
-            if (request.url == 'about:blank' ||
-                request.url.contains('tawk.to')) {
-              return NavigationDecision.navigate;
-            }
+        WebViewWidget(
+        controller: _controller),
 
-            if (widget.onLinkTap != null) {
-              widget.onLinkTap!(request.url);
-            }
-
-            return NavigationDecision.prevent;
-          },
-          onPageFinished: (_) {
-            if (widget.visitor != null) {
-              _setUser(widget.visitor!);
-            }
-
-            if (widget.onLoad != null) {
-              widget.onLoad!();
-            }
-
-            setState(() {
-              _isLoading = false;
-            });
-          },
-        ),
         _isLoading
             ? widget.placeholder ??
                 const Center(
